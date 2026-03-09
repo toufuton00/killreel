@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
@@ -994,6 +994,14 @@ const MOCK_TRACKS = [
   { id: 3, title: "DARK PHONK", bpm: "155 BPM", platform: "Pixabay", type: "dark", trending: false, duration: "0:60" },
 ];
 
+type Track = {
+  id: number;
+  title: string;
+  duration: number;
+  audioUrl: string;
+  bpm: number;
+};
+
 const WEAPONS = [
   { id: "ar", icon: "🔫", name: "AR/SMG" },
   { id: "sniper", icon: "🎯", name: "Sniper" },
@@ -1028,6 +1036,26 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState(-1);
   const [done, setDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [tracks, setTracks] = useState(MOCK_TRACKS);
+
+useEffect(() => {
+  fetch('/api/music')
+    .then(res => res.json())
+    .then(data => {
+      if (data.tracks?.length > 0) {
+        setTracks(data.tracks.map((t: Track) => ({
+          id: t.id,
+          title: t.title,
+          bpm: `${t.bpm} BPM`,
+          platform: "Freesound",
+          type: "dark",
+          trending: false,
+          duration: `${Math.floor(t.duration / 60)}:${String(t.duration % 60).padStart(2, '0')}`,
+          audioUrl: t.audioUrl,
+        })));
+      }
+    });
+}, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = useCallback((files: FileList | null) => {
@@ -1185,7 +1213,7 @@ export default function App() {
                 <span className="analyze-chip">AI取得</span>
               </div>
               <div className="panel fade-in-3">
-                {MOCK_TRACKS.map(track => (
+                {tracks.map(track => (
                   <div
                     key={track.id}
                     className={`music-track ${selectedTrack === track.id ? "selected" : ""}`}
