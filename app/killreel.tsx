@@ -1028,9 +1028,10 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState(-1);
   const [done, setDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = useCallback((files) => {
+  const handleUpload = useCallback((files: FileList | null) => {
+    if (!files) return;
     const newClips = Array.from(files).map((f, i) => ({
       id: Date.now() + i,
       name: f.name,
@@ -1040,13 +1041,13 @@ export default function App() {
     setClips(prev => [...prev, ...newClips]);
   }, []);
 
-  const toggleClip = (id) => {
+  const toggleClip = (id: number) => {
     setSelectedClips(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
 
-  const deleteClip = (e, id) => {
+  const deleteClip = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
     setClips(prev => prev.filter(c => c.id !== id));
     setSelectedClips(prev => prev.filter(x => x !== id));
