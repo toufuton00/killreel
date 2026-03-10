@@ -1414,13 +1414,13 @@ if (targetClips.length === 0 || targetClips.some(c => !c.file)) {
               <div className="preview-wrap fade-in">
                 <div className="preview-placeholder">
                   {done && videoUrl ? (
-                      <>
-                        <video
-                          src={videoUrl}
-                          controls
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        />
-                      </>
+   <>
+  <video
+    src={videoUrl}
+    controls
+    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+  />
+</>
                   ) : (
                     <>
                       <div className="preview-icon">🎮</div>
@@ -1437,7 +1437,15 @@ if (targetClips.length === 0 || targetClips.some(c => !c.file)) {
               </div>
 
               <div className="action-grid fade-in-2">
-                <button className="btn-action primary">
+                <button className="btn-action primary" onClick={() => {
+                 if (!videoUrl) return;
+                 const a = document.createElement('a');
+                 a.href = videoUrl;
+                 a.download = 'killreel.mp4';
+                 document.body.appendChild(a);
+                 a.click();
+                 document.body.removeChild(a);
+                }}>
                   <span className="btn-icon">⬇️</span>
                   <span className="btn-label">DOWNLOAD</span>
                 </button>
