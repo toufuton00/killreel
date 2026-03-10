@@ -23,6 +23,7 @@ const styles = `
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
 
   body {
     background: var(--bg-deep);
@@ -1034,6 +1035,8 @@ export default function App() {
   const [selectedClips, setSelectedClips] = useState([1, 2]);
   const [weapon, setWeapon] = useState("ar");
   const [selectedTrack, setSelectedTrack] = useState(1);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState("60");
   const [quality, setQuality] = useState("1080");
   const [autoCaption, setAutoCaption] = useState(true);
@@ -1097,6 +1100,16 @@ useEffect(() => {
     setSelectedClips(prev => prev.filter(x => x !== id));
   };
 
+  const handleTrackSelect = (track: any) => {
+  setSelectedTrack(track.id);
+  if (audioRef.current) {
+    audioRef.current.pause();
+    audioRef.current.src = track.audioUrl;
+    audioRef.current.play();
+    setIsPlaying(true);
+  }
+};
+
   const handleGenerate = async () => {
     setGenerating(true);
     setDone(false);
@@ -1115,6 +1128,7 @@ useEffect(() => {
   return (
     <>
       <style>{styles}</style>
+      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} style={{ display: "none" }} />
       <div className="app-wrapper">
         <div className="container">
 
@@ -1232,7 +1246,7 @@ useEffect(() => {
                   <div
                     key={track.id}
                     className={`music-track ${selectedTrack === track.id ? "selected" : ""}`}
-                    onClick={() => setSelectedTrack(track.id)}
+                    onClick={() => handleTrackSelect(track)}
                   >
                     <div className={`track-cover ${track.type}`}>
                       <div className="eq-bars">
