@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useCallback, useEffect } from "react";
+import { getVideoDuration, extractThumbnail } from "./lib/videoProcessor";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
@@ -1008,11 +1009,16 @@ const WEAPONS = [
   { id: "shotgun", icon: "💥", name: "Shotgun" },
 ];
 
-const MOCK_CLIPS = [
-  { id: 1, name: "clip_001.mp4", duration: "0:04", kill: true },
-  { id: 2, name: "clip_002.mp4", duration: "0:03", kill: true },
-  { id: 3, name: "clip_003.mp4", duration: "0:05", kill: false },
-];
+const MOCK_CLIPS: Clip[] = [];
+
+type Clip = {
+  id: number;
+  name: string;
+  duration: string;
+  kill: boolean;
+  thumbnail?: string;
+  file?: File;
+};
 
 const PROGRESS_STEPS = [
   "動画解析中 (OpenCV)",
@@ -1058,14 +1064,24 @@ useEffect(() => {
 }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = useCallback((files: FileList | null) => {
+  const handleUpload = useCallback(async (files: FileList | null) => {
     if (!files) return;
-    const newClips = Array.from(files).map((f, i) => ({
-      id: Date.now() + i,
-      name: f.name,
-      duration: `0:0${Math.floor(Math.random() * 5) + 2}`,
-      kill: Math.random() > 0.3,
-    }));
+    const newClips: Clip[] = await Promise.all(
+      Array.from(files).map(async (f, i) => {
+        const duration = await getVideoDuration(f);
+        const thumbnail = await extractThumbnail(f);
+        const mins = Math.floor(duration / 60);
+        const secs = Math.floor(duration % 60);
+        return {
+          id: Date.now() + i,
+          name: f.name,
+          duration: `${mins}:${String(secs).padStart(2, '0')}`,
+          kill: false,
+          thumbnail,
+          file: f,
+        };
+      })
+    );
     setClips(prev => [...prev, ...newClips]);
   }, []);
 
@@ -1163,12 +1179,11 @@ useEffect(() => {
                       className={`clip-card ${selectedClips.includes(clip.id) ? "selected" : ""}`}
                       onClick={() => toggleClip(clip.id)}
                     >
-                      <div style={{
-                        width: "100%", height: "100%",
-                        background: `linear-gradient(135deg, #0a0a18, #1a0a20)`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: "24px"
-                      }}>🎮</div>
+                      {clip.thumbnail ? (
+  <img src={clip.thumbnail} alt={clip.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+) : (
+  <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg, #0a0a18, #1a0a20)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px" }}>🎮</div>
+)}
                       <div className="clip-overlay" />
                       <button className="clip-delete" onClick={e => deleteClip(e, clip.id)}>×</button>
                       {clip.kill && <div className="clip-kill-badge">KILL</div>}
