@@ -1,7 +1,6 @@
 export async function getVideoDuration(file: File): Promise<number> {
   return new Promise((resolve) => {
     const video = document.createElement('video');
-    video.preload = 'metadata';
     const url = URL.createObjectURL(file);
     video.onloadedmetadata = () => {
       resolve(video.duration);
@@ -26,15 +25,17 @@ export async function extractThumbnail(file: File): Promise<string> {
     };
 
     video.onseeked = () => {
-      canvas.width = video.videoWidth || 320;
-      canvas.height = video.videoHeight || 568;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      }
-      const thumbnail = canvas.toDataURL('image/jpeg', 0.7);
-      URL.revokeObjectURL(url);
-      resolve(thumbnail);
+      setTimeout(() => {
+        canvas.width = video.videoWidth || 320;
+        canvas.height = video.videoHeight || 568;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        }
+        const thumbnail = canvas.toDataURL('image/jpeg', 0.7);
+        URL.revokeObjectURL(url);
+        resolve(thumbnail);
+      }, 200);
     };
 
     video.onerror = () => {
@@ -42,7 +43,8 @@ export async function extractThumbnail(file: File): Promise<string> {
       resolve('');
     };
 
+    video.muted = true;
+    video.playsInline = true;
     video.src = url;
-    video.load();
   });
 }

@@ -2,6 +2,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { getVideoDuration, extractThumbnail } from "./lib/videoProcessor";
 import { composeVideo } from "./lib/videoComposer";
+import { detectKillMoments } from "./lib/killDetector";
 import { loadStripe } from "@stripe/stripe-js";
 
 const styles = `
@@ -1079,6 +1080,8 @@ useEffect(() => {
       Array.from(files).map(async (f, i) => {
         const duration = await getVideoDuration(f);
         const thumbnail = await extractThumbnail(f);
+        console.log('thumbnail:', thumbnail?.slice(0, 50));
+        console.log('newClip file:', f.name);
         const mins = Math.floor(duration / 60);
         const secs = Math.floor(duration % 60);
         return {
@@ -1091,8 +1094,14 @@ useEffect(() => {
         };
       })
     );
-    setClips(prev => [...prev, ...newClips]);
+    setClips(prev => {
+  const updated = [...prev, ...newClips];
+  console.log('updated clips:', updated.map(c => ({ id: c.id, thumbnail: c.thumbnail?.slice(0, 30) })));
+  return updated;
+});
+
 setSelectedClips(prev => [...prev, ...newClips.map(c => c.id)]);
+console.log('newClips:', newClips.map(c => ({ id: c.id, thumbnail: c.thumbnail?.slice(0, 30) })));
   }, []);
 
   const toggleClip = (id: number) => {
@@ -1141,13 +1150,31 @@ const handleUpgrade = async () => {
 
     try {
       // 選択されたクリップを取得
-      const targetClips = clips
-  .filter(c => selectedClips.includes(c.id))
-  .map(c => ({
-    file: c.file!,
-    startSec: 0,
-    endSec: 5,
-  }));
+      const targetClips: { file: File; startSec: number; endSec: number }[] = [];
+
+for (const c of clips.filter(c => selectedClips.includes(c.id))) {
+  if (!c.file) continue;
+  
+  setCurrentStep(0);
+  const moments = await detectKillMoments(c.file, (p) => setProgress(Math.round(p * 0.5)));
+  
+  if (moments.length > 0) {
+    // キル検知できた場合はキルの3秒前から5秒間
+    const killTime = moments[0].timeSecond;
+    targetClips.push({
+      file: c.file,
+      startSec: Math.max(0, killTime - 3),
+      endSec: killTime + 5,
+    });
+  } else {
+    // 検知できなかった場合は最初の5秒
+    targetClips.push({
+      file: c.file,
+      startSec: 0,
+      endSec: 5,
+    });
+  }
+}
 
 console.log('targetClips:', targetClips);
 console.log('targetClips files:', targetClips.map(c => c.file));
@@ -1266,9 +1293,9 @@ if (targetClips.length === 0 || targetClips.some(c => !c.file)) {
                       onClick={() => toggleClip(clip.id)}
                     >
                       {clip.thumbnail ? (
-  <img src={clip.thumbnail} alt={clip.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+  <img src={clip.thumbnail} alt={clip.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
 ) : (
-  <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg, #0a0a18, #1a0a20)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px" }}>🎮</div>
+  <div style={{ width: "100%", height: "100%", background: "#333", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>🎮</div>
 )}
                       <div className="clip-overlay" />
                       <button className="clip-delete" onClick={e => deleteClip(e, clip.id)}>×</button>
@@ -1493,6 +1520,7 @@ if (targetClips.length === 0 || targetClips.some(c => !c.file)) {
 <div className="section-label fade-in-3">
   <span>プラットフォームに投稿</span>
 </div>
+
               <div className="platform-row fade-in-3">
                 <button className="platform-btn tiktok">
                   <span className="platform-icon">🎵</span>
