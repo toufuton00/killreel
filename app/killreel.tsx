@@ -2,6 +2,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { getVideoDuration, extractThumbnail } from "./lib/videoProcessor";
 import { composeVideo } from "./lib/videoComposer";
+import { loadStripe } from "@stripe/stripe-js";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
@@ -1116,6 +1117,18 @@ setSelectedClips(prev => [...prev, ...newClips.map(c => c.id)]);
   }
 };
 
+const handleUpgrade = async () => {
+  const res = await fetch('/api/stripe/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID }),
+  });
+  const data = await res.json();
+  if (data.url) {
+    window.location.href = data.url;
+  }
+};
+
   const handleGenerate = async () => {
     console.log('clips:', clips);
     console.log('selectedClips:', selectedClips);
@@ -1456,8 +1469,30 @@ if (targetClips.length === 0 || targetClips.some(c => !c.file)) {
               </div>
 
               <div className="section-label fade-in-3">
-                <span>プラットフォームに投稿</span>
-              </div>
+  <span>🔥 もっと高画質で生成したい？</span>
+</div>
+<div style={{ padding: "0 16px 16px" }}>
+  <button
+    onClick={handleUpgrade}
+    style={{
+      width: "100%",
+      padding: "14px",
+      background: "linear-gradient(135deg, #ff4655, #ff6b35)",
+      border: "none",
+      borderRadius: "12px",
+      color: "white",
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: "14px",
+      cursor: "pointer",
+      fontWeight: "bold",
+    }}
+  >
+    ⚡ KILLREEL Pro にアップグレード
+  </button>
+</div>
+<div className="section-label fade-in-3">
+  <span>プラットフォームに投稿</span>
+</div>
               <div className="platform-row fade-in-3">
                 <button className="platform-btn tiktok">
                   <span className="platform-icon">🎵</span>
