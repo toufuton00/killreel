@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { getVideoDuration, extractThumbnail } from "./lib/videoProcessor";
+import { composeVideo } from "./lib/videoComposer";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
@@ -990,18 +991,21 @@ const styles = `
   }
 `;
 
-const MOCK_TRACKS = [
-  { id: 1, title: "GODS - New Jeans", bpm: "128 BPM", platform: "TikTok", type: "tiktok", trending: true, duration: "0:45" },
-  { id: 2, title: "HYPE MODE", bpm: "140 BPM", platform: "YouTube", type: "hype", trending: true, duration: "0:30" },
-  { id: 3, title: "DARK PHONK", bpm: "155 BPM", platform: "Pixabay", type: "dark", trending: false, duration: "0:60" },
+const MOCK_TRACKS: Track[] = [
+  { id: 1, title: "GODS - New Jeans", bpm: "128 BPM", platform: "TikTok", type: "tiktok", trending: true, duration: "0:45", audioUrl: undefined },
+  { id: 2, title: "HYPE MODE", bpm: "140 BPM", platform: "YouTube", type: "hype", trending: true, duration: "0:30", audioUrl: undefined },
+  { id: 3, title: "DARK PHONK", bpm: "155 BPM", platform: "Pixabay", type: "dark", trending: false, duration: "0:60", audioUrl: undefined },
 ];
 
 type Track = {
   id: number;
   title: string;
-  duration: number;
-  audioUrl: string;
-  bpm: number;
+  duration: string;
+  audioUrl?: string;
+  bpm: string;
+  platform: string;
+  type: string;
+  trending: boolean;
 };
 
 const WEAPONS = [
@@ -1032,7 +1036,7 @@ const PROGRESS_STEPS = [
 export default function App() {
   const [tab, setTab] = useState("edit");
   const [clips, setClips] = useState(MOCK_CLIPS);
-  const [selectedClips, setSelectedClips] = useState([1, 2]);
+  const [selectedClips, setSelectedClips] = useState<number[]>([]);
   const [weapon, setWeapon] = useState("ar");
   const [selectedTrack, setSelectedTrack] = useState(1);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -1044,6 +1048,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(-1);
   const [done, setDone] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [tracks, setTracks] = useState(MOCK_TRACKS);
 
@@ -1059,7 +1064,7 @@ useEffect(() => {
           platform: "Freesound",
           type: "dark",
           trending: false,
-          duration: `${Math.floor(t.duration / 60)}:${String(t.duration % 60).padStart(2, '0')}`,
+          duration: `${Math.floor(Number(t.duration) / 60)}:${String(Number(t.duration) % 60).padStart(2, '0')}`,
           audioUrl: t.audioUrl,
         })));
       }
@@ -1086,6 +1091,7 @@ useEffect(() => {
       })
     );
     setClips(prev => [...prev, ...newClips]);
+setSelectedClips(prev => [...prev, ...newClips.map(c => c.id)]);
   }, []);
 
   const toggleClip = (id: number) => {
@@ -1111,18 +1117,71 @@ useEffect(() => {
 };
 
   const handleGenerate = async () => {
+    console.log('clips:', clips);
+    console.log('selectedClips:', selectedClips);
+    if (selectedClips.length === 0) return;
+
     setGenerating(true);
     setDone(false);
     setProgress(0);
-    for (let i = 0; i < PROGRESS_STEPS.length; i++) {
-      setCurrentStep(i);
-      await new Promise(r => setTimeout(r, 900 + Math.random() * 400));
-      setProgress(Math.round(((i + 1) / PROGRESS_STEPS.length) * 100));
+    setCurrentStep(0);
+
+    try {
+      // 選択されたクリップを取得
+      const targetClips = clips
+  .filter(c => selectedClips.includes(c.id))
+  .map(c => ({
+    file: c.file!,
+    startSec: 0,
+    endSec: 5,
+  }));
+
+console.log('targetClips:', targetClips);
+console.log('targetClips files:', targetClips.map(c => c.file));
+
+if (targetClips.length === 0 || targetClips.some(c => !c.file)) {
+  alert('動画ファイルが見つかりません。もう一度アップロードしてください。');
+  setGenerating(false);
+  return;
+}
+
+      setCurrentStep(1);
+
+      // 選択中の音源URLを取得
+      const track = tracks.find(t => t.id === selectedTrack);
+      if (!track || !track.audioUrl) {
+        alert('音源を選択してください。');
+        setGenerating(false);
+        return;
+      }
+
+      setCurrentStep(2);
+      setProgress(20);
+
+      // 動画を合成
+      const outputBlob = await composeVideo(
+        targetClips,
+        track.audioUrl,
+        parseInt(duration),
+        (p) => setProgress(20 + Math.round(p * 0.8))
+      );
+
+      setCurrentStep(3);
+      setProgress(100);
+
+      // プレビュー用URLを作成
+      const url = URL.createObjectURL(outputBlob);
+      setVideoUrl(url);
+      setDone(true);
+      setTab("preview");
+
+    } catch (err) {
+      console.error('生成エラー:', err);
+      alert('動画の生成に失敗しました。もう一度お試しください。');
+    } finally {
+      setGenerating(false);
+      setCurrentStep(-1);
     }
-    setCurrentStep(-1);
-    setGenerating(false);
-    setDone(true);
-    setTab("preview");
   };
 
   return (
@@ -1354,21 +1413,14 @@ useEffect(() => {
 
               <div className="preview-wrap fade-in">
                 <div className="preview-placeholder">
-                  {done ? (
-                    <>
-                      <div style={{ fontSize: "48px" }}>🎬</div>
-                      <div className="preview-text">生成完了！<br />プレビューを再生</div>
-                      <button style={{
-                        padding: "10px 24px",
-                        background: "var(--apex-red)",
-                        border: "none",
-                        borderRadius: "20px",
-                        color: "white",
-                        fontFamily: "'Orbitron', sans-serif",
-                        fontSize: "13px",
-                        cursor: "pointer"
-                      }}>▶ 再生</button>
-                    </>
+                  {done && videoUrl ? (
+                      <>
+                        <video
+                          src={videoUrl}
+                          controls
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      </>
                   ) : (
                     <>
                       <div className="preview-icon">🎮</div>
