@@ -1156,16 +1156,23 @@ for (const c of clips.filter(c => selectedClips.includes(c.id))) {
   if (!c.file) continue;
   
   setCurrentStep(0);
-  const moments = await detectKillMoments(c.file, (p) => setProgress(Math.round(p * 0.5)));
+console.log('detecting kill moments for:', c.file.name);
+let moments: { timeSecond: number; confidence: number }[] = [];
+try {
+  moments = await detectKillMoments(c.file, (p) => setProgress(Math.round(p * 0.5)));
+  console.log('kill moments:', moments);
+} catch (e) {
+  console.error('kill detection error:', e);
+}
   
   if (moments.length > 0) {
     // キル検知できた場合はキルの3秒前から5秒間
     const killTime = moments[0].timeSecond;
     targetClips.push({
-      file: c.file,
-      startSec: Math.max(0, killTime - 3),
-      endSec: killTime + 5,
-    });
+  file: c.file,
+  startSec: Math.max(0, killTime - 1),
+  endSec: killTime + 3,
+});
   } else {
     // 検知できなかった場合は最初の5秒
     targetClips.push({
